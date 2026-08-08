@@ -1,0 +1,53 @@
+{
+	"geode": "5.7.1",
+	"gd": {
+		"win": "2.2081",
+		"android": "2.2081",
+		"mac": "2.2081",
+		"ios": "2.2081"
+	},
+	"id": "thiengmd.float64_editor",
+	"name": "High Precision Editor",
+	"version": "v0.0.0.0.1",
+	"developer": "ThienGMD",
+	"description": "Changes the GD editor logic to save certain values at full float64",
+	"tags": [
+		"editor",
+		"enhancement"
+	],
+	"settings": {
+		"float64-object-position": {
+			"name": "float64 Object Position",
+			"description": "Overrides the default saving logic for object positions and save at float64 instead of 1 decimal place",
+			"type": "bool",
+			"default": true
+		},
+		"float64-object-rotation": {
+			"name": "float64 Object Rotation",
+			"description": "Overrides the default saving logic for object rotations and save at float64 instead of truncating; also applies to warp transforms",
+			"type": "bool",
+			"default": true
+		},
+		"float64-object-scale": {
+			"name": "float64 Object Scale",
+			"description": "Overrides the default saving logic for object scale and save at float64 instead of truncating; applies to both X and Y scales",
+			"type": "bool",
+			"default": true
+		},
+		"float64-trigger-parameters": {
+			"name": "float64 Trigger Parameters",
+			"description": "Overrides the default saving logic for trigger parameters and save at float64 instead of truncating; applies to most triggers",
+			"type": "bool",
+			"default": true
+    }, 
+		"write-math-expressions": {
+			"name": "Write Math Expressions",
+			"description": "Allows entering custom math formulas like 1/3, pi, e, or sqrt(2) into the editor input boxes.",
+			"type": "bool",
+			"default": false
+		}
+	},
+	"links": {
+		"source": "https://github.com/ThienGMD/float64-Editor"
+	}
+}
