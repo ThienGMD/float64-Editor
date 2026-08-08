@@ -39,7 +39,7 @@
 			"description": "Overrides the default saving logic for trigger parameters and save at float64 instead of truncating; applies to most triggers",
 			"type": "bool",
 			"default": true
-    }, 
+		}, 
 		"write-math-expressions": {
 			"name": "Write Math Expressions",
 			"description": "Allows entering custom math formulas like 1/3, pi, e, or sqrt(2) into the editor input boxes.",
