@@ -15,7 +15,7 @@
 		"editor",
 		"enhancement"
 	],
-	"dependencies": [
+	"dependencies": {
 		{
 			"id": "kxtbit.high_precision_editor",
 			"version": ">=0.1.31",
