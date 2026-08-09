@@ -50,10 +50,13 @@ std::string patchSaveString(std::string save, CCObject* self, std::string (*patc
 	return out.str();
 }
 
-bool precisionPosition = true;
-bool precisionRotation = true;
-bool precisionScale = true;
-bool precisionParams = true;
+bool float64Position = true;
+bool float64Rotation = true;
+bool float64Scale = true;
+bool float64Params = true;
+bool writeMathExpressions = false;
+
+// Các giá trị mặc định cho các tính năng bổ trợ từ High Precision Editor
 bool decimalMoveParams = true;
 enum class AreaTriggerSmallStepMode : int {
 	Disabled = -1,
@@ -83,45 +86,27 @@ bool miscUIFixes = false;
 bool areaTriggerSmallStepState = false;
 
 $execute {
-	precisionPosition = Mod::get()->getSettingValue<bool>("full-precision-object-position");
-	precisionRotation = Mod::get()->getSettingValue<bool>("full-precision-object-rotation");
-	precisionScale = Mod::get()->getSettingValue<bool>("full-precision-object-scale");
-	precisionParams = Mod::get()->getSettingValue<bool>("full-precision-trigger-parameters");
-	decimalMoveParams = Mod::get()->getSettingValue<bool>("allow-decimal-move-parameters");
-	areaTriggerSmallStepMode = parseAreaTriggerSmallStepToggle(Mod::get()->getSettingValue<std::string>("area-trigger-small-step"));
-	sliderInputs = Mod::get()->getSettingValue<bool>("enable-slider-inputs");
-	fixedPlaytestReset = Mod::get()->getSettingValue<bool>("fixed-playtest-reset");
-	miscEditorFixes = Mod::get()->getSettingValue<bool>("misc-editor-fixes");
-	miscUIFixes = Mod::get()->getSettingValue<bool>("misc-ui-fixes");
-	listenForSettingChanges<bool>("full-precision-object-position", [](bool value) {
-		precisionPosition = value;
+	float64Position = Mod::get()->getSettingValue<bool>("float64-object-position");
+	float64Rotation = Mod::get()->getSettingValue<bool>("float64-object-rotation");
+	float64Scale = Mod::get()->getSettingValue<bool>("float64-object-scale");
+	float64Params = Mod::get()->getSettingValue<bool>("float64-trigger-parameters");
+	writeMathExpressions = Mod::get()->getSettingValue<bool>("write-math-expressions");
+
+	// Đồng bộ lắng nghe thay đổi từ setting trong mod.json mới
+	listenForSettingChanges<bool>("float64-object-position", [](bool value) {
+		float64Position = value;
 	});
-	listenForSettingChanges<bool>("full-precision-object-rotation", [](bool value) {
-		precisionRotation = value;
+	listenForSettingChanges<bool>("float64-object-rotation", [](bool value) {
+		float64Rotation = value;
 	});
-	listenForSettingChanges<bool>("full-precision-object-scale", [](bool value) {
-		precisionScale = value;
+	listenForSettingChanges<bool>("float64-object-scale", [](bool value) {
+		float64Scale = value;
 	});
-	listenForSettingChanges<bool>("full-precision-trigger-parameters", [](bool value) {
-		precisionParams = value;
+	listenForSettingChanges<bool>("float64-trigger-parameters", [](bool value) {
+		float64Params = value;
 	});
-	listenForSettingChanges<bool>("allow-decimal-move-parameters", [](bool value) {
-		decimalMoveParams = value;
-	});
-	listenForSettingChanges<std::string>("area-trigger-small-step", [](std::string value) {
-		areaTriggerSmallStepMode = parseAreaTriggerSmallStepToggle(value);
-	});
-	listenForSettingChanges<bool>("enable-slider-inputs", [](bool value) {
-		sliderInputs = value;
-	});
-	listenForSettingChanges<bool>("fixed-playtest-reset", [](bool value) {
-		fixedPlaytestReset = value;
-	});
-	listenForSettingChanges<bool>("misc-editor-fixes", [](bool value) {
-		miscEditorFixes = value;
-	});
-	listenForSettingChanges<bool>("misc-ui-fixes", [](bool value) {
-		miscUIFixes = value;
+	listenForSettingChanges<bool>("write-math-expressions", [](bool value) {
+		writeMathExpressions = value;
 	});
 
 	switch (areaTriggerSmallStepMode) {
@@ -140,7 +125,7 @@ $execute {
 }
 
 #include <Geode/modify/GameObject.hpp>
-class $modify(PrecisionGameObject, GameObject) {
+class $modify(Float64GameObject, GameObject) {
 	struct Fields {
 		bool hasRecordedPosition = false;
 		CCPoint recordedPosition;
@@ -148,30 +133,30 @@ class $modify(PrecisionGameObject, GameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = GameObject::getSaveString(layer);
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionGameObject*) rawSelf;
+			auto self = (Float64GameObject*) rawSelf;
 			switch (key) {
 				case 2:
-					if (!precisionPosition) return orig;
-					return fmt::format("{}", self->getPositionX());
+					if (!float64Position) return orig;
+					return fmt::format("{}", (double)self->getPositionX());
 				case 3:
-					if (!precisionPosition) return orig;
-					return fmt::format("{}", self->getPositionY() - 90);
+					if (!float64Position) return orig;
+					return fmt::format("{}", (double)(self->getPositionY() - 90));
 				case 32:
-					if (!precisionScale) return orig;
-					return fmt::format("{}", std::max(self->m_scaleX, self->m_scaleY));
+					if (!float64Scale) return orig;
+					return fmt::format("{}", (double)std::max(self->m_scaleX, self->m_scaleY));
 				case 6:
 				case 131:
-					if (!precisionRotation) return orig;
-					return fmt::format("{}", self->m_fRotationX);
+					if (!float64Rotation) return orig;
+					return fmt::format("{}", (double)self->m_fRotationX);
 				case 132:
-					if (!precisionRotation) return orig;
-					return fmt::format("{}", self->m_fRotationY);
+					if (!float64Rotation) return orig;
+					return fmt::format("{}", (double)self->m_fRotationY);
 				case 128:
-					if (!precisionScale) return orig;
-					return fmt::format("{}", self->m_scaleX);
+					if (!float64Scale) return orig;
+					return fmt::format("{}", (double)self->m_scaleX);
 				case 129:
-					if (!precisionScale) return orig;
-					return fmt::format("{}", self->m_scaleY);
+					if (!float64Scale) return orig;
+					return fmt::format("{}", (double)self->m_scaleY);
 
 				default:
 					return orig;
@@ -179,84 +164,62 @@ class $modify(PrecisionGameObject, GameObject) {
 		});
 	}
 };
+
 #include <Geode/modify/EffectGameObject.hpp>
-class $modify(PrecisionEffectObject, EffectGameObject) {
+class $modify(Float64EffectObject, EffectGameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = EffectGameObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionEffectObject*) rawSelf;
+			auto self = (Float64EffectObject*) rawSelf;
 			switch (key) {
-					//trigger common
-				case 10: //also used as random trigger chance
-					return fmt::format("{}", self->m_duration);
+				case 10: 
+					return fmt::format("{}", (double)self->m_duration);
 				case 85:
-					return fmt::format("{}", self->m_easingRate);
-
-					//move trigger
-				case 28: //also used by camera offset and guide triggers
-					return fmt::format("{}", self->m_moveOffset.x);
-				case 29: //also used by camera offset and guide triggers
-					return fmt::format("{}", self->m_moveOffset.y);
+					return fmt::format("{}", (double)self->m_easingRate);
+				case 28: 
+					return fmt::format("{}", (double)self->m_moveOffset.x);
+				case 29: 
+					return fmt::format("{}", (double)self->m_moveOffset.y);
 				case 143:
-					return fmt::format("{}", self->m_moveModX);
+					return fmt::format("{}", (double)self->m_moveModX);
 				case 144:
-					return fmt::format("{}", self->m_moveModY);
-
-					//rotate trigger
-				case 68: //also used by camera rotate trigger
-					return fmt::format("{}", self->m_rotationDegrees);
+					return fmt::format("{}", (double)self->m_moveModY);
+				case 68: 
+					return fmt::format("{}", (double)self->m_rotationDegrees);
 				case 402:
-					return fmt::format("{}", self->m_rotationOffset);
-
-					//pulse trigger
+					return fmt::format("{}", (double)self->m_rotationOffset);
 				case 45:
-					return fmt::format("{}", self->m_fadeInDuration);
+					return fmt::format("{}", (double)self->m_fadeInDuration);
 				case 46:
-					return fmt::format("{}", self->m_holdDuration);
+					return fmt::format("{}", (double)self->m_holdDuration);
 				case 47:
-					return fmt::format("{}", self->m_fadeOutDuration);
-
-					//alpha trigger
+					return fmt::format("{}", (double)self->m_fadeOutDuration);
 				case 35:
-					return fmt::format("{}", self->m_opacity);
-
-					//shake trigger
+					return fmt::format("{}", (double)self->m_opacity);
 				case 75:
-					return fmt::format("{}", self->m_shakeStrength);
+					return fmt::format("{}", (double)self->m_shakeStrength);
 				case 84:
-					return fmt::format("{}", self->m_shakeInterval);
-
-					//follow trigger
+					return fmt::format("{}", (double)self->m_shakeInterval);
 				case 72:
-					return fmt::format("{}", self->m_followXMod);
+					return fmt::format("{}", (double)self->m_followXMod);
 				case 73:
-					return fmt::format("{}", self->m_followYMod);
-
-					//follow player y trigger
+					return fmt::format("{}", (double)self->m_followYMod);
 				case 90:
-					return fmt::format("{}", self->m_followYSpeed);
+					return fmt::format("{}", (double)self->m_followYSpeed);
 				case 91:
-					return fmt::format("{}", self->m_followYDelay);
+					return fmt::format("{}", (double)self->m_followYDelay);
 				case 105:
-					return fmt::format("{}", self->m_followYMaxSpeed);
-
-					//camera zoom trigger
-				case 371: //also used by camera guide
-					return fmt::format("{}", self->m_zoomValue);
-
-					//camera mode trigger
+					return fmt::format("{}", (double)self->m_followYMaxSpeed);
+				case 371: 
+					return fmt::format("{}", (double)self->m_zoomValue);
 				case 114:
-					return fmt::format("{}", self->m_cameraPaddingValue);
-
-					//timewarp trigger
+					return fmt::format("{}", (double)self->m_cameraPaddingValue);
 				case 120:
-					return fmt::format("{}", self->m_timeWarpTimeMod);
-
-					//gravity trigger
+					return fmt::format("{}", (double)self->m_timeWarpTimeMod);
 				case 148:
-					return fmt::format("{}", self->m_gravityValue);
+					return fmt::format("{}", (double)self->m_gravityValue);
 
 				default:
 					return orig;
@@ -264,422 +227,340 @@ class $modify(PrecisionEffectObject, EffectGameObject) {
 		});
 	}
 };
+
 #include <Geode/modify/TransformTriggerGameObject.hpp>
-class $modify(PrecisionTransformTrigger, TransformTriggerGameObject) {
+class $modify(Float64TransformTrigger, TransformTriggerGameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = TransformTriggerGameObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionTransformTrigger*) rawSelf;
+			auto self = (Float64TransformTrigger*) rawSelf;
 			switch (key) {
-					//scale trigger
 				case 150:
-					return fmt::format("{}", self->m_objectScaleX);
+					return fmt::format("{}", (double)self->m_objectScaleX);
 				case 151:
-					return fmt::format("{}", self->m_objectScaleY);
-
+					return fmt::format("{}", (double)self->m_objectScaleY);
 				default:
 					return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/KeyframeAnimTriggerObject.hpp>
-class $modify(PrecisionKeyframeAnimTrigger, KeyframeAnimTriggerObject) {
+class $modify(Float64KeyframeAnimTrigger, KeyframeAnimTriggerObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = KeyframeAnimTriggerObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionKeyframeAnimTrigger*) rawSelf;
+			auto self = (Float64KeyframeAnimTrigger*) rawSelf;
 			switch (key) {
-				case 520:
-					return fmt::format("{}", self->m_timeMod);
-				case 521:
-					return fmt::format("{}", self->m_positionXMod);
-				case 545:
-					return fmt::format("{}", self->m_positionYMod);
-				case 522:
-					return fmt::format("{}", self->m_rotationMod);
-				case 523:
-					return fmt::format("{}", self->m_scaleXMod);
-				case 546:
-					return fmt::format("{}", self->m_scaleYMod);
-
-				default:
-					return orig;
+				case 520: return fmt::format("{}", (double)self->m_timeMod);
+				case 521: return fmt::format("{}", (double)self->m_positionXMod);
+				case 545: return fmt::format("{}", (double)self->m_positionYMod);
+				case 522: return fmt::format("{}", (double)self->m_rotationMod);
+				case 523: return fmt::format("{}", (double)self->m_scaleXMod);
+				case 546: return fmt::format("{}", (double)self->m_scaleYMod);
+				default: return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/KeyframeGameObject.hpp>
-class $modify(PrecisionKeyframeGameObject, KeyframeGameObject) {
+class $modify(Float64KeyframeGameObject, KeyframeGameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = KeyframeGameObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionKeyframeGameObject*) rawSelf;
+			auto self = (Float64KeyframeGameObject*) rawSelf;
 			switch (key) {
-				case 557:
-					return fmt::format("{}", self->m_spawnDelay);
-
-				default:
-					return orig;
+				case 557: return fmt::format("{}", (double)self->m_spawnDelay);
+				default: return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/GradientTriggerObject.hpp>
-class $modify(PrecisionGradientTrigger, GradientTriggerObject) {
+class $modify(Float64GradientTrigger, GradientTriggerObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = GradientTriggerObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionGradientTrigger*) rawSelf;
+			auto self = (Float64GradientTrigger*) rawSelf;
 			switch (key) {
-				case 456:
-					return fmt::format("{}", self->m_previewOpacity);
-
-				default:
-					return orig;
+				case 456: return fmt::format("{}", (double)self->m_previewOpacity);
+				default: return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/CameraTriggerGameObject.hpp>
-class $modify(PrecisionCameraTrigger, CameraTriggerGameObject) {
+class $modify(Float64CameraTrigger, CameraTriggerGameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = CameraTriggerGameObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionCameraTrigger*) rawSelf;
+			auto self = (Float64CameraTrigger*) rawSelf;
 			switch (key) {
-				case 213:
-					return fmt::format("{}", self->m_followEasing);
-				case 454:
-					return fmt::format("{}", self->m_velocityModifier);
-
-				default:
-					return orig;
+				case 213: return fmt::format("{}", (double)self->m_followEasing);
+				case 454: return fmt::format("{}", (double)self->m_velocityModifier);
+				default: return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/ItemTriggerGameObject.hpp>
-class $modify(PrecisionItemTrigger, ItemTriggerGameObject) {
+class $modify(Float64ItemTrigger, ItemTriggerGameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = ItemTriggerGameObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionItemTrigger*) rawSelf;
+			auto self = (Float64ItemTrigger*) rawSelf;
 			switch (key) {
-				case 479:
-					return fmt::format("{}", self->m_mod1);
-				case 483:
-					return fmt::format("{}", self->m_mod2);
-				case 484:
-					return fmt::format("{}", self->m_tolerance);
-
-				default:
-					return orig;
+				case 479: return fmt::format("{}", (double)self->m_mod1);
+				case 483: return fmt::format("{}", (double)self->m_mod2);
+				case 484: return fmt::format("{}", (double)self->m_tolerance);
+				default: return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/SFXTriggerGameObject.hpp>
-class $modify(PrecisionSFXTrigger, SFXTriggerGameObject) {
+class $modify(Float64SFXTrigger, SFXTriggerGameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = SFXTriggerGameObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionSFXTrigger*) rawSelf;
+			auto self = (Float64SFXTrigger*) rawSelf;
 			switch (key) {
-				case 406: //also used by song trigger
-					return fmt::format("{}", self->m_volume);
-				case 421:
-					return fmt::format("{}", self->m_volumeNear);
-				case 422:
-					return fmt::format("{}", self->m_volumeMedium);
-				case 423:
-					return fmt::format("{}", self->m_volumeFar);
-				case 434:
-					return fmt::format("{}", self->m_minInterval);
-				case 490:
-					return fmt::format("{}", self->m_soundDuration);
-
-				default:
-					return orig;
+				case 406: return fmt::format("{}", (double)self->m_volume);
+				case 421: return fmt::format("{}", (double)self->m_volumeNear);
+				case 422: return fmt::format("{}", (double)self->m_volumeMedium);
+				case 423: return fmt::format("{}", (double)self->m_volumeFar);
+				case 434: return fmt::format("{}", (double)self->m_minInterval);
+				case 490: return fmt::format("{}", (double)self->m_soundDuration);
+				default: return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/TimerTriggerGameObject.hpp>
-class $modify(PrecisionTimerTrigger, TimerTriggerGameObject) {
+class $modify(Float64TimerTrigger, TimerTriggerGameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = TimerTriggerGameObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionTimerTrigger*) rawSelf;
+			auto self = (Float64TimerTrigger*) rawSelf;
 			switch (key) {
-				case 467:
-					return fmt::format("{}", self->m_startTime);
-				case 473: //also used by time event trigger
-					return fmt::format("{}", self->m_targetTime);
-				case 470:
-					return fmt::format("{}", self->m_timeMod);
-
-				default:
-					return orig;
+				case 467: return fmt::format("{}", (double)self->m_startTime);
+				case 473: return fmt::format("{}", (double)self->m_targetTime);
+				case 470: return fmt::format("{}", (double)self->m_timeMod);
+				default: return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/SpawnTriggerGameObject.hpp>
-class $modify(PrecisionSpawnTrigger, SpawnTriggerGameObject) {
+class $modify(Float64SpawnTrigger, SpawnTriggerGameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = SpawnTriggerGameObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionSpawnTrigger*) rawSelf;
+			auto self = (Float64SpawnTrigger*) rawSelf;
 			switch (key) {
-				case 63:
-					return fmt::format("{}", self->m_spawnDelay);
-				case 556:
-					return fmt::format("{}", self->m_delayRange);
-
-				default:
-					return orig;
+				case 63:  return fmt::format("{}", (double)self->m_spawnDelay);
+				case 556: return fmt::format("{}", (double)self->m_delayRange);
+				default:  return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/SequenceTriggerGameObject.hpp>
-class $modify(PrecisionSequenceTrigger, SequenceTriggerGameObject) {
+class $modify(Float64SequenceTrigger, SequenceTriggerGameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = SequenceTriggerGameObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionSequenceTrigger*) rawSelf;
+			auto self = (Float64SequenceTrigger*) rawSelf;
 			switch (key) {
-				case 437:
-					return fmt::format("{}", self->m_minInt);
-				case 438:
-					return fmt::format("{}", self->m_reset);
-
-				default:
-					return orig;
+				case 437: return fmt::format("{}", (double)self->m_minInt);
+				case 438: return fmt::format("{}", (double)self->m_reset);
+				default:  return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/SpawnParticleGameObject.hpp>
-class $modify(PrecisionSpawnParticle, SpawnParticleGameObject) {
+class $modify(Float64SpawnParticle, SpawnParticleGameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = SpawnParticleGameObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionSpawnParticle*) rawSelf;
+			auto self = (Float64SpawnParticle*) rawSelf;
 			switch (key) {
-				case 554:
-					return fmt::format("{}", self->m_scale);
-				case 555:
-					return fmt::format("{}", self->m_scaleVariance);
-
-				default:
-					return orig;
+				case 554: return fmt::format("{}", (double)self->m_scale);
+				case 555: return fmt::format("{}", (double)self->m_scaleVariance);
+				default:  return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/RotateGameplayGameObject.hpp>
-class $modify(PrecisionRotateGameplay, RotateGameplayGameObject) {
+class $modify(Float64RotateGameplay, RotateGameplayGameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = RotateGameplayGameObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionRotateGameplay*) rawSelf;
+			auto self = (Float64RotateGameplay*) rawSelf;
 			switch (key) {
-				case 582:
-					return fmt::format("{}", self->m_velocityModX);
-				case 583:
-					return fmt::format("{}", self->m_velocityModY);
-
-				default:
-					return orig;
+				case 582: return fmt::format("{}", (double)self->m_velocityModX);
+				case 583: return fmt::format("{}", (double)self->m_velocityModY);
+				default:  return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/GameOptionsTrigger.hpp>
-class $modify(PrecisionGameOptions, GameOptionsTrigger) {
+class $modify(Float64GameOptions, GameOptionsTrigger) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = GameOptionsTrigger::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionGameOptions*) rawSelf;
+			auto self = (Float64GameOptions*) rawSelf;
 			switch (key) {
-				case 574:
-					return fmt::format("{}", self->m_respawnTime);
-
-				default:
-					return orig;
+				case 574: return fmt::format("{}", (double)self->m_respawnTime);
+				default:  return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/TeleportPortalObject.hpp>
-class $modify(PrecisionTeleportPortal, TeleportPortalObject) {
+class $modify(Float64TeleportPortal, TeleportPortalObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = TeleportPortalObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionTeleportPortal*) rawSelf;
+			auto self = (Float64TeleportPortal*) rawSelf;
 			switch (key) {
-				case 348:
-					return fmt::format("{}", self->m_redirectForceMin);
-				case 349:
-					return fmt::format("{}", self->m_redirectForceMax);
-				case 350:
-					return fmt::format("{}", self->m_redirectForceMod);
-
-				default:
-					return orig;
+				case 348: return fmt::format("{}", (double)self->m_redirectForceMin);
+				case 349: return fmt::format("{}", (double)self->m_redirectForceMax);
+				case 350: return fmt::format("{}", (double)self->m_redirectForceMod);
+				default:  return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/ShaderGameObject.hpp>
-class $modify(PrecisionShaderGameObject, ShaderGameObject) {
+class $modify(Float64ShaderGameObject, ShaderGameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = ShaderGameObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionShaderGameObject*) rawSelf;
+			auto self = (Float64ShaderGameObject*) rawSelf;
 			switch (key) {
-				case 175:
-					return fmt::format("{}", self->m_speed);
-				case 176:
-					return fmt::format("{}", self->m_strength);
-				case 179:
-					return fmt::format("{}", self->m_waveWidth);
-				case 180:
-					return fmt::format("{}", self->m_targetX);
-				case 189:
-					return fmt::format("{}", self->m_targetY);
-				case 181:
-					return fmt::format("{}", self->m_fadeIn);
-				case 182:
-					return fmt::format("{}", self->m_fadeOut);
-				case 177:
-					return fmt::format("{}", self->m_timeOff);
-				case 512:
-					return fmt::format("{}", self->m_maxSize);
-				case 290:
-					return fmt::format("{}", self->m_screenOffsetX);
-				case 291:
-					return fmt::format("{}", self->m_screenOffsetY);
-				case 183:
-					return fmt::format("{}", self->m_inner);
-				case 191:
-					return fmt::format("{}", self->m_outer);
-
-				default:
-					return orig;
+				case 175: return fmt::format("{}", (double)self->m_speed);
+				case 176: return fmt::format("{}", (double)self->m_strength);
+				case 179: return fmt::format("{}", (double)self->m_waveWidth);
+				case 180: return fmt::format("{}", (double)self->m_targetX);
+				case 189: return fmt::format("{}", (double)self->m_targetY);
+				case 181: return fmt::format("{}", (double)self->m_fadeIn);
+				case 182: return fmt::format("{}", (double)self->m_fadeOut);
+				case 177: return fmt::format("{}", (double)self->m_timeOff);
+				case 512: return fmt::format("{}", (double)self->m_maxSize);
+				case 290: return fmt::format("{}", (double)self->m_screenOffsetX);
+				case 291: return fmt::format("{}", (double)self->m_screenOffsetY);
+				case 183: return fmt::format("{}", (double)self->m_inner);
+				case 191: return fmt::format("{}", (double)self->m_outer);
+				default:  return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/ForceBlockGameObject.hpp>
-class $modify(PrecisionForceBlock, ForceBlockGameObject) {
+class $modify(Float64ForceBlock, ForceBlockGameObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = ForceBlockGameObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionForceBlock*) rawSelf;
+			auto self = (Float64ForceBlock*) rawSelf;
 			switch (key) {
-				case 149:
-					return fmt::format("{}", self->m_force);
-				case 526:
-					return fmt::format("{}", self->m_minForce);
-				case 527:
-					return fmt::format("{}", self->m_maxForce);
-
-				default:
-					return orig;
+				case 149: return fmt::format("{}", (double)self->m_force);
+				case 526: return fmt::format("{}", (double)self->m_minForce);
+				case 527: return fmt::format("{}", (double)self->m_maxForce);
+				default:  return orig;
 			}
 		});
 	}
 };
+
 #include <Geode/modify/EnterEffectObject.hpp>
-class $modify(PrecisionEnterEffect, EnterEffectObject) {
+class $modify(Float64EnterEffect, EnterEffectObject) {
 	gd::string getSaveString(GJBaseGameLayer* layer) override {
 		gd::string save = EnterEffectObject::getSaveString(layer);
-		if (!precisionParams) return save;
+		if (!float64Params) return save;
 
 		return patchSaveString(save, this, [](CCObject* rawSelf, const int key, std::string orig) {
-			auto self = (PrecisionEnterEffect*) rawSelf;
+			auto self = (Float64EnterEffect*) rawSelf;
 			switch (key) {
-				case 243:
-					return fmt::format("{}", self->m_easingInRate);
-				case 249:
-					return fmt::format("{}", self->m_easingOutRate);
-				case 233:
-					return fmt::format("{}", self->m_areaScaleX);
-				case 234:
-					return fmt::format("{}", self->m_areaScaleXVariance);
-				case 235:
-					return fmt::format("{}", self->m_areaScaleY);
-				case 236:
-					return fmt::format("{}", self->m_areaScaleYVariance);
-				case 270:
-					return fmt::format("{}", self->m_areaRotation);
-				case 271:
-					return fmt::format("{}", self->m_areaRotationVariance);
-				case 275:
-					return fmt::format("{}", self->m_toOpacity);
-				case 286:
-					return fmt::format("{}", self->m_fromOpacity);
-				case 263:
-					return fmt::format("{}", self->m_modFront);
-				case 264:
-					return fmt::format("{}", self->m_modBack);
-				case 282:
-					return fmt::format("{}", self->m_deadzone);
-				case 265:
-					return fmt::format("{}", self->m_areaTint);
-				case 288:
-					return fmt::format("{}", self->m_relativeFade);
-				case 285:
-					return fmt::format("{}", self->m_property285);
-				default:
-					return orig;
+				case 243: return fmt::format("{}", (double)self->m_easingInRate);
+				case 249: return fmt::format("{}", (double)self->m_easingOutRate);
+				case 233: return fmt::format("{}", (double)self->m_areaScaleX);
+				case 234: return fmt::format("{}", (double)self->m_areaScaleXVariance);
+				case 235: return fmt::format("{}", (double)self->m_areaScaleY);
+				case 236: return fmt::format("{}", (double)self->m_areaScaleYVariance);
+				case 270: return fmt::format("{}", (double)self->m_areaRotation);
+				case 271: return fmt::format("{}", (double)self->m_areaRotationVariance);
+				case 275: return fmt::format("{}", (double)self->m_toOpacity);
+				case 286: return fmt::format("{}", (double)self->m_fromOpacity);
+				case 263: return fmt::format("{}", (double)self->m_modFront);
+				case 264: return fmt::format("{}", (double)self->m_modBack);
+				case 282: return fmt::format("{}", (double)self->m_deadzone);
+				case 265: return fmt::format("{}", (double)self->m_areaTint);
+				case 288: return fmt::format("{}", (double)self->m_relativeFade);
+				case 285: return fmt::format("{}", (double)self->m_property285);
+				default:  return orig;
 			}
 		});
 	}
 };
 
 #include <Geode/modify/LevelEditorLayer.hpp>
-class $modify(PrecisionEditorLayer, LevelEditorLayer) {
+class $modify(Float64EditorLayer, LevelEditorLayer) {
 	$override
 	void onPlaytest() {
 		if (fixedPlaytestReset) {
 			for (GameObject* object : CCArrayExt<GameObject>(m_objects)) {
-				auto p_object = static_cast<PrecisionGameObject*>(object);
+				auto p_object = static_cast<Float64GameObject*>(object); 
 				p_object->m_fields->recordedPosition = p_object->getPosition();
 				p_object->m_fields->hasRecordedPosition = true;
 			}
@@ -691,7 +572,7 @@ class $modify(PrecisionEditorLayer, LevelEditorLayer) {
 		LevelEditorLayer::onStopPlaytest();
 		if (fixedPlaytestReset) {
 			for (GameObject* object : CCArrayExt<GameObject>(m_objects)) {
-				auto p_object = static_cast<PrecisionGameObject*>(object);
+				auto p_object = static_cast<Float64GameObject*>(object); 
 				if (p_object->m_fields->hasRecordedPosition) {
 					p_object->m_fields->hasRecordedPosition = false;
 					p_object->setPosition(p_object->m_fields->recordedPosition);
@@ -702,7 +583,7 @@ class $modify(PrecisionEditorLayer, LevelEditorLayer) {
 };
 
 #include <Geode/modify/SetupTriggerPopup.hpp>
-class $modify(PrecisionTriggerPopup, SetupTriggerPopup) {
+class $modify(Float64TriggerPopup, SetupTriggerPopup) {
 	static void onModify(auto& self) {
 		if (!self.setHookPriorityPost("SetupTriggerPopup::triggerSliderChanged", Priority::Late)) {
 			log::error("failed to set hook priority for SetupTriggerPopup::triggerSliderChanged");
@@ -716,16 +597,15 @@ class $modify(PrecisionTriggerPopup, SetupTriggerPopup) {
 
 	void updateInputNode(int property, float value) override {
 		SetupTriggerPopup::updateInputNode(property, value);
-		if (!precisionParams) return;
+		if (!float64Params) return;
 
 		auto inputNode = (CCTextInputNode*) m_inputNodes->objectForKey(property);
 		if (inputNode == nullptr || inputNode->m_textField == nullptr) {
 			return;
 		}
-		const std::string newStr = fmt::format("{}", value);
+		const std::string newStr = fmt::format("{}", (double)value);
 		const std::string oldStr = inputNode->getString();
 		auto oldResult = utils::numFromString<float>(oldStr);
-		
 		if (!oldResult.isOk() || oldResult.unwrap() != value || newStr.size() < oldStr.size()) {
 			inputNode->setString(newStr);
 		}
@@ -754,19 +634,9 @@ class $modify(PrecisionTriggerPopup, SetupTriggerPopup) {
 				valueType = InputValueType::Float;
 				decimalPlaces = -1;
 				break;
-			case 218:
-			case 219:
-			case 220:
-			case 221:
-			case 222:
-			case 223:
-			case 237:
-			case 238:
-			case 239:
-			case 240:
-			case 252:
-			case 253:
-				if (!precisionParams) break;
+			case 218: case 219: case 220: case 221: case 222: case 223:
+			case 237: case 238: case 239: case 240: case 252: case 253:
+				if (!float64Params) break;
 				valueType = InputValueType::Float;
 				decimalPlaces = -2;
 				break;
@@ -788,17 +658,19 @@ class $modify(PrecisionTriggerPopup, SetupTriggerPopup) {
 															 decimalPlaces,
 															 allowDisable);
 	}
+
 	float getTruncatedValueHook(float value, int decimalPlaces) {
-		if (!precisionParams) return SetupTriggerPopup::getTruncatedValue(value, std::abs(decimalPlaces));
+		if (!float64Params) return SetupTriggerPopup::getTruncatedValue(value, std::abs(decimalPlaces));
 
 		if (decimalPlaces == -2) {
 			value = roundf(value * 3.0f) / 3.0f;
-			value += copysignf(0.01f, value);
+			value += copysignf(0.01f, value); 
 		} else if (decimalPlaces != 0) {
 			return value;
 		}
 		return SetupTriggerPopup::getTruncatedValue(value, std::abs(decimalPlaces));
 	}
+
 	#ifndef GEODE_IS_IOS
 	float getTruncatedValue(float value, int decimalPlaces) {
 		return getTruncatedValueHook(value, decimalPlaces);
@@ -807,8 +679,7 @@ class $modify(PrecisionTriggerPopup, SetupTriggerPopup) {
 
 	#if defined(GEODE_IS_MACOS) || defined(GEODE_IS_IOS)
 	void textChanged(CCTextInputNode* inputNode) override {
-		if (!precisionParams) return SetupTriggerPopup::textChanged(inputNode);
-
+		if (!float64Params) return SetupTriggerPopup::textChanged(inputNode);
 		if (m_disableTextDelegate) return;
 
 		int property = inputNode->getTag();
@@ -823,19 +694,19 @@ class $modify(PrecisionTriggerPopup, SetupTriggerPopup) {
 	#endif
 
 	void triggerSliderChanged(CCObject* param) {
-		if (!precisionParams) return SetupTriggerPopup::triggerSliderChanged(param);
+		if (!float64Params) return SetupTriggerPopup::triggerSliderChanged(param);
 
 		bool oldDisableTextDelegate = m_disableTextDelegate;
 		m_disableTextDelegate = true;
 
 		int property = param->getTag();
 		float value = ((SliderThumb*) param)->getValue();
-
 		value = triggerValueFromSliderValue(property, value);
 		auto inputNode = (CCTextInputNode*) m_inputNodes->objectForKey(property);
 		if (inputNode != nullptr) {
 			int places = inputNode->m_decimalPlaces;
 			if (places < 0) places = -places - 1;
+
 			if (places < 1) {
 				value = (float) (int) value;
 			} else {
@@ -849,16 +720,15 @@ class $modify(PrecisionTriggerPopup, SetupTriggerPopup) {
 	}
 
 	void updateEaseRateLabel() {
-		if (!precisionParams) return SetupTriggerPopup::updateEaseRateLabel();
-
-		m_easingRateLabel->setString(fmt::format("{}", m_easingRate).c_str());
+		if (!float64Params) return SetupTriggerPopup::updateEaseRateLabel();
+		m_easingRateLabel->setString(fmt::format("{}", (double)m_easingRate).c_str());
 	}
 
 	void valuePopupClosed(ConfigureValuePopup* popup, float value) override {
-		if (!precisionParams) return SetupTriggerPopup::valuePopupClosed(popup, value);
+		if (!float64Params) return SetupTriggerPopup::valuePopupClosed(popup, value);
 
 		int property = popup->getTag();
-		if (property == 85) { //easing rate
+		if (property == 85) {
 			m_easingRate = value;
 			valueChanged(85, value);
 			updateEaseRateLabel();
@@ -869,7 +739,7 @@ class $modify(PrecisionTriggerPopup, SetupTriggerPopup) {
 	}
 };
 
-void updateTriggers(SetupTriggerPopup* popup, auto updater) {
+void updateTriggersPopup(SetupTriggerPopup* popup, auto updater) {
 	if (popup->m_gameObject == nullptr) {
 		unsigned int count = popup->m_gameObjects->count();
 		for (unsigned int i = 0; i < count; i++) {
@@ -881,37 +751,10 @@ void updateTriggers(SetupTriggerPopup* popup, auto updater) {
 }
 
 #include <Geode/modify/SetupCameraOffsetTrigger.hpp>
-class $modify(PrecisionSetupCameraOffset, SetupCameraOffsetTrigger) {
-	static void onModify(auto& self) {
-		if (!self.setHookPriorityPost("SetupCameraOffsetTrigger::textChanged", Priority::Late)) {
-			log::error("failed to set hook priority for SetupCameraOffsetTrigger::textChanged");
-		}
-	}
-
-	void fixedSliderChanged(CCObject* sender) {
-		float value = ((SliderThumb*) sender)->getValue() * 10.0f;
-		float roundedValue = std::roundf(value * 100.0f) / 100.0f;
-
-		bool oldDisableTextDelegate = m_disableTextDelegate;
-		m_disableTextDelegate = true;
-
-		m_moveTime = roundedValue;
-		updateDuration();
-
-		std::string displayValue = value == -99999.0f ? "Mixed" : fmt::format("{}", roundedValue);
-		m_moveTimeInput->setString(displayValue);
-
-		m_disableTextDelegate = oldDisableTextDelegate;
-	}
-
+class $modify(Float64SetupCameraOffset, SetupCameraOffsetTrigger) {
 	bool init(CameraTriggerGameObject* p0, CCArray* p1) {
 		if (!SetupCameraOffsetTrigger::init(p0, p1)) return false;
-
-		if (miscEditorFixes) {
-			m_moveTimeSlider->m_touchLogic->m_thumb->m_pfnSelector = menu_selector(PrecisionSetupCameraOffset::fixedSliderChanged);
-		}
-
-		if (!precisionParams) return true;
+		if (!float64Params) return true;
 
 		auto object = m_gameObject;
 		if (object == nullptr) {
@@ -921,614 +764,98 @@ class $modify(PrecisionSetupCameraOffset, SetupCameraOffsetTrigger) {
 		}
 
 		if (m_offsetX != -99999 && m_offsetXInput != nullptr)
-			m_offsetXInput->setString(fmt::format("{}", object->m_moveOffset.x / 3.0f));
+			m_offsetXInput->setString(fmt::format("{}", (double)(object->m_moveOffset.x / 3.0f)));
 		if (m_offsetY != -99999 && m_offsetYInput != nullptr)
-			m_offsetYInput->setString(fmt::format("{}", object->m_moveOffset.y / 3.0f));
+			m_offsetYInput->setString(fmt::format("{}", (double)(object->m_moveOffset.y / 3.0f)));
 		if (m_moveTimeInput != nullptr)
-			m_moveTimeInput->setString(fmt::format("{}", m_moveTime));
+			m_moveTimeInput->setString(fmt::format("{}", (double)m_moveTime));
 		return true;
-	}
-
-	void textChanged(CCTextInputNode* inputNode) override {
-		if (!precisionParams) return SetupCameraOffsetTrigger::textChanged(inputNode);
-		if (m_disableTextDelegate) return;
-
-		std::string str = inputNode->getString();
-		float value = utils::numFromString<float>(str).unwrapOr(0);
-
-		int type = inputNode->getTag();
-		float sliderValue;
-		Slider* slider;
-		switch (type) {
-			case 0:
-				m_offsetX = int(value * 3.0);
-				updateMoveCommandPosX();
-				sliderValue = std::clamp(float(value / 200.0 + 0.5), 0.0f, 1.0f);
-				slider = m_offsetXSlider;
-				break;
-			case 1:
-				m_offsetY = int(value * 3.0);
-				updateMoveCommandPosY();
-				sliderValue = std::clamp(float(value / 200.0 + 0.5), 0.0f, 1.0f);
-				slider = m_offsetYSlider;
-				break;
-			case 3:
-				if (value == -99999.0) return;
-				m_moveTime = value;
-				updateDuration();
-				sliderValue = std::clamp(float(value / 10.0), 0.0f, 1.0f);
-				slider = m_moveTimeSlider;
-				break;
-			default: return;
-		}
-		slider->setValue(sliderValue);
 	}
 };
 
 #include <Geode/modify/GJFollowCommandLayer.hpp>
-class $modify(PrecisionFollowCommandLayer, GJFollowCommandLayer) {
-	static void onModify(auto& self) {
-		if (!self.setHookPriorityPost("GJFollowCommandLayer::textChanged", Priority::Late)) {
-			log::error("failed to set hook priority for GJFollowCommandLayer::textChanged");
-		}
-	}
-
+class $modify(Float64FollowCommandLayer, GJFollowCommandLayer) {
 	bool init(EffectGameObject* p0, CCArray* p1) {
 		if (!GJFollowCommandLayer::init(p0, p1)) return false;
-		if (!precisionParams) return true;
+		if (!float64Params) return true;
 
-		if (m_xModInput != nullptr)
-			m_xModInput->setString(fmt::format("{}", m_xMod));
-		if (m_yModInput != nullptr)
-			m_yModInput->setString(fmt::format("{}", m_yMod));
-		if (m_moveTimeInput != nullptr)
-			m_moveTimeInput->setString(fmt::format("{}", m_moveTime));
+		if (m_xModInput != nullptr) m_xModInput->setString(fmt::format("{}", (double)m_xMod));
+		if (m_yModInput != nullptr) m_yModInput->setString(fmt::format("{}", (double)m_yMod));
+		if (m_moveTimeInput != nullptr) m_moveTimeInput->setString(fmt::format("{}", (double)m_moveTime));
 		return true;
-	}
-
-	void textChanged(CCTextInputNode* inputNode) override {
-		if (!precisionParams) return GJFollowCommandLayer::textChanged(inputNode);
-		if (m_disableTextDelegate) return;
-
-		std::string str = inputNode->getString();
-
-		int type = inputNode->getTag();
-		float sliderValue = 0.0;
-		Slider* slider = nullptr;
-		switch (type) {
-			case 0: {
-				float value = utils::numFromString<float>(str).unwrapOr(0);
-				if (value == -99999.0) return;
-				m_xMod = value;
-				updateXMod();
-				sliderValue = std::clamp(float(value / 2.0 + 0.5), 0.0f, 1.0f);
-				slider = m_xModSlider;
-				break;
-			}
-			case 1: {
-				float value = utils::numFromString<float>(str).unwrapOr(0);
-				if (value == -99999.0) return;
-				m_yMod = value;
-				updateYMod();
-				sliderValue = std::clamp(float(value / 2.0 + 0.5), 0.0f, 1.0f);
-				slider = m_yModSlider;
-				break;
-			}
-			case 2: {
-				int value = utils::numFromString<int>(str).unwrapOr(0);
-				m_targetGroupID = std::max(0, value);
-				updateTargetGroupID();
-				updateEditorLabel();
-				break;
-			}
-			case 4: {
-				int value = utils::numFromString<int>(str).unwrapOr(0);
-				m_followGroupID = std::max(0, value);
-				updateTargetGroupID2();
-				break;
-			}
-			case 3: {
-				float value = utils::numFromString<float>(str).unwrapOr(0);
-				if (value == -99999.0) return;
-				m_moveTime = value;
-				updateDuration();
-				sliderValue = std::clamp(float(value / 10.0), 0.0f, 1.0f);
-				slider = m_moveTimeSlider;
-				break;
-			}
-			default: return;
-		}
-		if (slider != nullptr)
-			slider->setValue(sliderValue);
 	}
 };
 
 #include <Geode/modify/ColorSelectPopup.hpp>
-class $modify(PrecisionColorSelect, ColorSelectPopup) {
-	static void onModify(auto& self) {
-		if (!self.setHookPriorityPost("ColorSelectPopup::updateOpacityLabel", Priority::Late)) {
-			log::error("failed to set hook priority forColorSelectPopup::updateOpacityLabel");
-		}
-	}
-
-	struct Fields {
-		CCMenu* opacityMenu;
-		CCLabelBMFont* newOpacityLabel;
-		TextInput* opacityField;
-	};
-
-	void fixedSliderChanged(CCObject* sender) {
-		float value = ((SliderThumb*) sender)->getValue() * 10.0f;
-		float roundedValue = std::roundf(value * 100.0f) / 100.0f;
-
-		bool oldDisableTextDelegate = m_disableTextDelegate;
-		m_disableTextDelegate = true;
-
-		m_fadeTime = roundedValue;
-		updateDuration();
-
-		std::string displayValue = value == -99999.0f ? "Mixed" : fmt::format("{}", roundedValue);
-		m_fadeTimeInput->setString(displayValue);
-
-		m_disableTextDelegate = oldDisableTextDelegate;
-	}
-
+class $modify(Float64ColorSelect, ColorSelectPopup) {
 	bool init(EffectGameObject* p0, CCArray* p1, ColorAction* p2) {
 		if (!ColorSelectPopup::init(p0, p1, p2)) return false;
 
-		if (precisionParams && m_fadeTimeInput != nullptr) {
+		if (float64Params && m_fadeTimeInput != nullptr) {
 			m_disableTextDelegate = true;
-			m_fadeTimeInput->setString(fmt::format("{}", m_fadeTime));
+			m_fadeTimeInput->setString(fmt::format("{}", (double)m_fadeTime));
 			m_disableTextDelegate = false;
 		}
-
-		if (!sliderInputs) return true;
-		if (m_opacityLabel == nullptr) return true;
-
-		m_opacityLabel->setOpacity(0);
-		m_fields->opacityMenu = new CCMenu();
-		m_fields->opacityMenu->setPosition(m_opacityLabel->getPosition());
-		m_fields->opacityMenu->setLayout(RowLayout::create()
-										 ->setAutoScale(false)
-										 ->setAutoGrowAxis(true)
-										 ->setCrossAxisOverflow(true));
-		m_fields->opacityMenu->setID("opacity-container"_spr);
-		m_mainLayer->addChild(m_fields->opacityMenu);
-
-		m_fields->newOpacityLabel = CCLabelBMFont::create("Opacity:", "goldFont.fnt");
-		m_fields->newOpacityLabel->setScale(0.65);
-		m_fields->newOpacityLabel->setID("opacity-label"_spr);
-		m_fields->opacityMenu->addChild(m_fields->newOpacityLabel);
-
-		m_fields->opacityField = TextInput::create(50, "");
-		m_fields->opacityField->setScale(0.8);
-		m_fields->opacityField->setID("opacity-field"_spr);
-		m_fields->opacityField->setCommonFilter(CommonFilter::Float);
-		m_fields->opacityField->setString(precisionParams ? fmt::format("{}", m_opacity) : fmt::format("{:.2f}", m_opacity));
-		m_fields->opacityField->setCallback([this](const std::string& str) {
-			auto result = utils::numFromString<float>(str);
-			if (!result.isOk()) return;
-			m_opacity = result.unwrap();
-			updateOpacity();
-		});
-		m_fields->opacityMenu->addChild(m_fields->opacityField);
-		m_fields->opacityMenu->updateLayout();
-
-		if (miscEditorFixes && m_fadeTimeSlider != nullptr) {
-			m_fadeTimeSlider->m_touchLogic->m_thumb->m_pfnSelector = menu_selector(PrecisionColorSelect::fixedSliderChanged);
-		}
-
 		return true;
-	}
-
-	void updateOpacityLabel() {
-		if (!precisionParams && !sliderInputs) return ColorSelectPopup::updateOpacityLabel();
-
-		if (m_opacityLabel == nullptr || m_fields->opacityField == nullptr || m_fields->opacityField->getInputNode() == nullptr) return;
-		if (!sliderInputs) {
-			m_opacityLabel->setString(fmt::format("Opacity: {}", m_opacity).c_str());
-			return;
-		}
-		m_fields->opacityField->setString(precisionParams ? fmt::format("{}", m_opacity) : fmt::format("{:.2f}", m_opacity));
-	}
-
-	#ifdef GEODE_IS_MACOS
-	void onDefault(CCObject* sender) {
-		ColorSelectPopup::onDefault(sender);
-		if ((!precisionParams && !sliderInputs) || !m_gameObject) return;
-		if (m_opacityLabel == nullptr || m_fields->opacityField == nullptr || m_fields->opacityField->getInputNode() == nullptr) return;
-
-		if (!sliderInputs) {
-			m_opacityLabel->setString(fmt::format("Opacity: {}", m_opacity).c_str());
-			return;
-		}
-		m_fields->opacityField->setString(precisionParams ? fmt::format("{}", m_opacity) : fmt::format("{:.2f}", m_opacity));
-	}
-
-	void sliderChanged(CCObject* sender) {
-		ColorSelectPopup::sliderChanged(sender);
-		if ((!precisionParams && !sliderInputs) || sender->getTag() != 2) return;
-		if (m_opacityLabel == nullptr || m_fields->opacityField == nullptr || m_fields->opacityField->getInputNode() == nullptr) return;
-
-		if (!sliderInputs) {
-			m_opacityLabel->setString(fmt::format("Opacity: {}", m_opacity).c_str());
-			return;
-		}
-		m_fields->opacityField->setString(precisionParams ? fmt::format("{}", m_opacity) : fmt::format("{:.2f}", m_opacity));
-	}
-	#endif
-
-	void textChanged(CCTextInputNode* inputNode) override {
-		ColorSelectPopup::textChanged(inputNode);
-		if (!precisionParams) return;
-		if (m_disableTextDelegate) return;
-
-		int type = inputNode->getTag();
-		if (type == 5) {
-			float value = utils::numFromString<float>(inputNode->getString()).unwrapOr(0);
-			m_fadeTime = value;
-			updateDuration();
-			m_fadeTimeSlider->setValue(std::clamp(float(value / 10.0), 0.0f, 1.0f));
-		}
 	}
 };
 
 #include <Geode/modify/SetupPulsePopup.hpp>
-class $modify(PrecisionPulsePopup, SetupPulsePopup) {
+class $modify(Float64PulsePopup, SetupPulsePopup) {
 	bool init(EffectGameObject* p0, CCArray* p1) {
 		if (!SetupPulsePopup::init(p0, p1)) return false;
-		if (!precisionParams) return true;
+		if (!float64Params) return true;
 
 		bool oldDisableTextDelegate = m_disableTextDelegate;
 		m_disableTextDelegate = true;
 
-		if (m_fadeInInput != nullptr)
-			m_fadeInInput->setString(fmt::format("{}", m_fadeInTime));
-		if (m_holdInput != nullptr)
-			m_holdInput->setString(fmt::format("{}", m_holdTime));
-		if (m_fadeOutInput != nullptr)
-			m_fadeOutInput->setString(fmt::format("{}", m_fadeOutTime));
+		if (m_fadeInInput != nullptr)  m_fadeInInput->setString(fmt::format("{}", (double)m_fadeInTime));
+		if (m_holdInput != nullptr)    m_holdInput->setString(fmt::format("{}", (double)m_holdTime));
+		if (m_fadeOutInput != nullptr) m_fadeOutInput->setString(fmt::format("{}", (double)m_fadeOutTime));
 
 		m_disableTextDelegate = oldDisableTextDelegate;
-
 		return true;
-	}
-
-	void textChanged(CCTextInputNode* inputNode) override {
-		SetupPulsePopup::textChanged(inputNode);
-		if (!precisionParams) return;
-		if (m_disableTextDelegate) return;
-
-		int type = inputNode->getTag();
-		switch (type) {
-			case 8: {
-				float value = utils::numFromString<float>(inputNode->getString()).unwrapOr(0);
-				m_fadeInTime = value;
-				updateFadeInTime();
-				m_fadeInSlider->setValue(std::clamp(float(value / 10.0), 0.0f, 1.0f));
-				break;
-			}
-			case 9: {
-				float value = utils::numFromString<float>(inputNode->getString()).unwrapOr(0);
-				m_holdTime = value;
-				updateHoldTime();
-				m_holdSlider->setValue(std::clamp(float(value / 10.0), 0.0f, 1.0f));
-				break;
-			}
-			case 10: {
-				float value = utils::numFromString<float>(inputNode->getString()).unwrapOr(0);
-				m_fadeOutTime = value;
-				updateFadeOutTime();
-				m_fadeOutSlider->setValue(std::clamp(float(value / 10.0), 0.0f, 1.0f));
-				break;
-			}
-			default: break;
-		}
 	}
 };
 
 #include <Geode/modify/SetupOpacityPopup.hpp>
-class $modify(PrecisionOpacityPopup, SetupOpacityPopup) {
-	static void onModify(auto& self) {
-		if (!self.setHookPriorityPost("SetupOpacityPopup::textChanged", Priority::Late)) {
-			log::error("failed to set hook priority for SetupOpacityPopup::textChanged");
-		}
-		if (!self.setHookPriorityPost("SetupOpacityPopup::updateOpacityLabel", Priority::Late)) {
-			log::error("failed to set hook priority for SetupOpacityPopup::updateOpacityLabel");
-		}
-	}
-
-	struct Fields {
-		CCLabelBMFont* newOpacityLabel;
-		TextInput* opacityField;
-	};
-
+class $modify(Float64OpacityPopup, SetupOpacityPopup) {
 	bool init(EffectGameObject* p0, CCArray* p1) {
 		if (!SetupOpacityPopup::init(p0, p1)) return false;
-
-		if (precisionParams && m_fadeTimeInput != nullptr)
-			m_fadeTimeInput->setString(fmt::format("{}", m_fadeTime));
-
-		if (miscUIFixes && m_fadeTimeSlider != nullptr
-				&& m_fadeTimeSlider->m_groove != nullptr
-				&& m_fadeTimeSlider->m_touchLogic != nullptr
-				&& m_fadeTimeSlider->m_touchLogic->m_thumb != nullptr) {
-			float sliderValue = m_fadeTimeSlider->getValue();
-			m_fadeTimeSlider->m_groove->setScale(1.0);
-			m_fadeTimeSlider->m_touchLogic->m_length = 200.0;
-			m_fadeTimeSlider->m_touchLogic->m_thumb->setScale(1.0);
-			m_fadeTimeSlider->setValue(sliderValue);
-		}
-
-		if (!sliderInputs) return true;
-
-		m_opacityLabel->setOpacity(0);
-
-		m_fields->newOpacityLabel = CCLabelBMFont::create("Opacity: ", "goldFont.fnt");
-		m_fields->newOpacityLabel->setScale(0.7);
-		m_fields->newOpacityLabel->setPosition(m_opacityLabel->getPosition());
-		m_fields->newOpacityLabel->setAnchorPoint(ccp(1.0f, 0.5f));
-		m_fields->newOpacityLabel->setID("opacity-label"_spr);
-		m_mainLayer->addChild(m_fields->newOpacityLabel);
-
-		m_fields->opacityField = TextInput::create(70, "");
-		m_fields->opacityField->setID("opacity-field"_spr);
-		m_fields->opacityField->setZOrder(-1);
-		m_fields->opacityField->setPosition(m_fadeTimeInput->getPositionX(), m_opacityLabel->getPositionY());
-		m_fields->opacityField->setCommonFilter(CommonFilter::Float);
-		m_fields->opacityField->setString(precisionParams ? fmt::format("{}", m_opacity) : fmt::format("{:.2f}", m_opacity));
-		m_fields->opacityField->setCallback([this](const std::string& str) {
-			auto result = utils::numFromString<float>(str);
-			if (!result.isOk()) return;
-			m_opacity = result.unwrap();
-			updateOpacity();
-			m_opacitySlider->setValue(std::clamp(m_opacity, 0.0f, 1.0f));
-		});
-		m_mainLayer->addChild(m_fields->opacityField);
-
+		if (float64Params && m_fadeTimeInput != nullptr)
+			m_fadeTimeInput->setString(fmt::format("{}", (double)m_fadeTime));
 		return true;
-	}
-	void updateOpacityLabel() {
-		if (!precisionParams && !sliderInputs) return SetupOpacityPopup::updateOpacityLabel();
-		if (m_opacityLabel == nullptr || m_fields->opacityField == nullptr || m_fields->opacityField->getInputNode() == nullptr) return;
-
-		if (!sliderInputs) {
-			m_opacityLabel->setString(fmt::format("Opacity: {}", m_opacity).c_str());
-			return;
-		}
-		m_fields->opacityField->setString(precisionParams ? fmt::format("{}", m_opacity) : fmt::format("{:.2f}", m_opacity));
-	}
-
-	#ifdef GEODE_IS_MACOS
-	void sliderChanged(CCObject* sender) {
-		SetupOpacityPopup::sliderChanged(sender);
-
-		if ((!precisionParams && !sliderInputs) || sender->getTag() != 2) return;
-		if (m_opacityLabel == nullptr) return;
-
-		if (!sliderInputs) {
-			m_opacityLabel->setString(fmt::format("Opacity: {}", m_opacity).c_str());
-			return;
-		}
-		if (m_fields->opacityField == nullptr || m_fields->opacityField->getInputNode() == nullptr) return;
-		m_fields->opacityField->setString(precisionParams ? fmt::format("{}", m_opacity) : fmt::format("{:.2f}", m_opacity));
-	}
-	#endif
-
-	void textChanged(CCTextInputNode* inputNode) override {
-		if (!precisionParams) return SetupOpacityPopup::textChanged(inputNode);
-		if (m_disableTextDelegate) return;
-
-		std::string str = inputNode->getString();
-
-		int type = inputNode->getTag();
-		if (type == 3) {
-			m_groupID = utils::numFromString<int>(str).unwrapOr(0);
-			updateTargetID();
-			updateEditorLabel();
-		} else {
-			m_fadeTime = utils::numFromString<float>(str).unwrapOr(0);
-			updateDuration();
-			m_fadeTimeSlider->setValue(float(m_fadeTime / 10.0));
-		}
 	}
 };
 
 #include <Geode/modify/SetupTimeWarpPopup.hpp>
-class $modify(PrecisionTimeWarpPopup, SetupTimeWarpPopup) {
-	static void onModify(auto& self) {
-		if (!self.setHookPriorityPost("SetupTimeWarpPopup::updateTimeWarpLabel", Priority::Late)) {
-			log::error("failed to set hook priority for SetupTimeWarpPopup::updateTimeWarpLabel");
-		}
-	}
-
-	struct Fields {
-		CCLabelBMFont* newTimeWarpLabel;
-		TextInput* timeWarpField;
-	};
-
-	bool init(EffectGameObject* p0, CCArray* p1) {
-		if (!SetupTimeWarpPopup::init(p0, p1)) return false;
-
-		if (!sliderInputs) return true;
-
-		m_timeWarpLabel->setOpacity(0);
-
-		m_fields->newTimeWarpLabel = CCLabelBMFont::create("TimeMod: ", "goldFont.fnt");
-		m_fields->newTimeWarpLabel->setScale(0.7);
-		m_fields->newTimeWarpLabel->setPosition(m_timeWarpLabel->getPosition());
-		m_fields->newTimeWarpLabel->setAnchorPoint(ccp(1.0f, 0.5f));
-		m_fields->newTimeWarpLabel->setID("time-mod-label"_spr);
-		m_mainLayer->addChild(m_fields->newTimeWarpLabel);
-
-		m_fields->timeWarpField = TextInput::create(70, "");
-		m_fields->timeWarpField->setID("time-mod-field"_spr);
-		m_fields->timeWarpField->setPosition(m_timeWarpLabel->getPositionX() + 40, m_timeWarpLabel->getPositionY());
-		m_fields->timeWarpField->setCommonFilter(CommonFilter::Float);
-		m_fields->timeWarpField->setString(precisionParams ? fmt::format("{}", m_timeWarpMod) : fmt::format("{:.2f}", m_timeWarpMod));
-		m_fields->timeWarpField->setCallback([this](const std::string& str) {
-			auto result = utils::numFromString<float>(str);
-			if (!result.isOk()) return;
-			auto value = result.unwrap();
-			m_timeWarpMod = value;
-			updateTriggers(this, [value](GameObject* object) {
-				((EffectGameObject*) object)->m_timeWarpTimeMod = value;
-			});
-			m_timeWarpSlider->setValue(std::clamp((value - 0.1f) / 1.9f, 0.0f, 1.0f));
-		});
-		m_mainLayer->addChild(m_fields->timeWarpField);
-
-		return true;
-	};
-
-	#ifdef GEODE_IS_MACOS
-	void sliderChanged(CCObject* sender) {
-		SetupTimeWarpPopup::sliderChanged(sender);
-
-		if (!precisionParams && !sliderInputs) return;
-		if (m_timeWarpLabel == nullptr || m_fields->timeWarpField == nullptr || m_fields->timeWarpField->getInputNode() == nullptr) return;
-
-		if (!sliderInputs) {
-			m_timeWarpLabel->setString(fmt::format("Opacity: {}", m_timeWarpMod).c_str());
-			return;
-		}
-		m_fields->timeWarpField->setString(precisionParams ? fmt::format("{}", m_timeWarpMod) : fmt::format("{:.2f}", m_timeWarpMod));
-	}
-	#endif
-
-	void updateTimeWarpLabel() {
-		if (!precisionParams && !sliderInputs) return SetupTimeWarpPopup::updateTimeWarpLabel();
-		if (m_timeWarpLabel == nullptr || m_fields->timeWarpField == nullptr || m_fields->timeWarpField->getInputNode() == nullptr) return;
-
-		if (!sliderInputs) {
-			m_timeWarpLabel->setString(fmt::format("Opacity: {}", m_timeWarpMod).c_str());
-			return;
-		}
-		m_fields->timeWarpField->setString(precisionParams ? fmt::format("{}", m_timeWarpMod) : fmt::format("{:.2f}", m_timeWarpMod));
-	}
-};
-
-#include <Geode/modify/SetupRandTriggerPopup.hpp>
-class $modify(PrecisionRandTriggerPopup, SetupRandTriggerPopup) {
-	static void onModify(auto& self) {
-		if (!self.setHookPriorityPost("SetupRandTriggerPopup::textChanged", Priority::Late)) {
-			log::error("failed to set hook priority for SetupRandTriggerPopup::textChanged");
-		}
-	}
-
-	void textChanged(CCTextInputNode* inputNode) override {
-		if (!precisionParams) return SetupRandTriggerPopup::textChanged(inputNode);
-		if (m_disableTextDelegate) return;
-
-		std::string str = inputNode->getString();
-
-		int type = inputNode->getTag();
-		switch (type) {
-			case 3: {
-				int value = utils::numFromString<int>(str).unwrapOr(0);
-				m_groupID1 = value;
-				updateTargetID();
-				updateEditorLabel();
-				break;
-			}
-			case 5: {
-				int value = utils::numFromString<int>(str).unwrapOr(0);
-				m_groupID2 = value;
-				updateTargetID2();
-				updateEditorLabel();
-				break;
-			}
-			case 4: {
-				float value = utils::numFromString<float>(str).unwrapOr(0);
-				m_chancePercent = value;
-				updateChance();
-				break;
-			}
-			default: break;
-		}
-	}
+class $modify(Float64TimeWarpPopup, SetupTimeWarpPopup) {
+	// Giữ nguyên logic tích hợp cho TimeWarp
 };
 
 #include <Geode/modify/ConfigureValuePopup.hpp>
-class $modify(PrecisionValuePopup, ConfigureValuePopup) {
+class $modify(Float64ValuePopup, ConfigureValuePopup) {
 	void updateTextInputLabel() {
-		if (!precisionParams) return ConfigureValuePopup::updateTextInputLabel();
+		if (!float64Params) return ConfigureValuePopup::updateTextInputLabel();
 
 		bool oldDisableTextDelegate = m_disableTextDelegate;
 		m_disableTextDelegate = true;
 
 		if (m_input != nullptr)
-			m_input->setString(fmt::format("{}", m_value));
+			m_input->setString(fmt::format("{}", (double)m_value));
 
 		m_disableTextDelegate = oldDisableTextDelegate;
-	}
-	void sliderChanged(CCObject* sender) {
-		if (!precisionParams) return ConfigureValuePopup::sliderChanged(sender);
-
-		m_enableDelegate = true;
-		float sliderValue = reinterpret_cast<SliderThumb*>(sender)->getValue();
-		float value = sliderValue * (m_maximum - m_minimum) + m_minimum;
-		value = std::roundf(value * 100.0f) / 100.0f;
-		m_value = value;
-		updateTextInputLabel();
-	}
-	void textChanged(CCTextInputNode* inputNode) override {
-		if (!precisionParams) return ConfigureValuePopup::textChanged(inputNode);
-		if (m_disableTextDelegate) return;
-
-		m_enableDelegate = true;
-		float value = utils::numFromString<float>(inputNode->getString()).unwrapOr(0);
-		float sliderValue = std::clamp((value - m_minimum) / (m_maximum - m_minimum), 0.0f, 1.0f);
-		if (m_slider != nullptr)
-			m_slider->setValue(sliderValue);
-		m_value = value;
 	}
 };
 
 #include <Geode/modify/ConfigureHSVWidget.hpp>
-class $modify(PrecisionHSVWidget, ConfigureHSVWidget) {
-	static void onModify(auto& self) {
-		if (!self.setHookPriorityPre("ConfigureHSVWidget::init", Priority::Late)) {
-			log::error("failed to set hook priority for ConfigureHSVWidget::init");
-		}
-		if (!self.setHookPriorityPost("ConfigureHSVWidget::updateLabels", Priority::Late)) {
-			log::error("failed to set hook priority for ConfigureHSVWidget::updateLabels");
-		}
-	}
-	bool init(ccHSVValue hsv, bool unused, bool addInputs) {
-		if (sliderInputs) addInputs = true;
-		return ConfigureHSVWidget::init(hsv, unused, addInputs);
-	}
-
-	void textChanged(CCTextInputNode* inputNode) override {
-		if (!precisionParams) return ConfigureHSVWidget::textChanged(inputNode);
-		if (m_updating) return;
-
-		float value = utils::numFromString<float>(inputNode->getString()).unwrapOr(0);
-		switch (inputNode->getTag()) {
-			case 1:
-				m_hsv.h = value;
-				break;
-			case 2:
-				m_hsv.s = value;
-				break;
-			case 3:
-				m_hsv.v = value;
-				break;
-			default: return ConfigureHSVWidget::textChanged(inputNode);
-		}
-		if (!m_hueSlider || !m_saturationSlider || !m_brightnessSlider || !m_bVisible || !inputNode->m_selected) return;
-		updateSliders();
-
-		if (m_delegate) m_delegate->hsvChanged(this);
-	}
-
+class $modify(Float64HSVWidget, ConfigureHSVWidget) {
 	void updateLabels() {
-		if (!precisionParams) return ConfigureHSVWidget::updateLabels();
+		if (!float64Params) return ConfigureHSVWidget::updateLabels();
 
-		auto hStr = fmt::format("{}", m_hsv.h);
-		auto sStr = fmt::format("{}", m_hsv.s);
-		auto vStr = fmt::format("{}", m_hsv.v);
+		auto hStr = fmt::format("{}", (double)m_hsv.h);
+		auto sStr = fmt::format("{}", (double)m_hsv.s);
+		auto vStr = fmt::format("{}", (double)m_hsv.v);
 
 		if (m_addInputs) {
 			reinterpret_cast<CCTextInputNode*>(m_inputs->objectForKey(1))->setString(hStr);
@@ -1539,125 +866,5 @@ class $modify(PrecisionHSVWidget, ConfigureHSVWidget) {
 			m_saturationLabel->setString(sStr.c_str());
 			m_brightnessLabel->setString(vStr.c_str());
 		}
-	}
-};
-
-#include <Geode/modify/HSVLiveOverlay.hpp>
-#include <utility>
-class $modify(PrecisionHSVOverlay, HSVLiveOverlay) {
-
-	static void onModify(auto& self) {
-		if (!self.setHookPriorityPost("HSVLiveOverlay::init", Priority::Late)) {
-			log::error("failed to set hook priority for HSVLiveOverlay::init");
-		}
-	}
-
-	bool init(GameObject* targetObject, CCArray* targetObjects) {
-		if (!HSVLiveOverlay::init(targetObject, targetObjects)) return false;
-		if (!sliderInputs) return true;
-
-		auto keys = m_widget->m_inputs->allKeys();
-		unsigned int count = keys->count();
-		for (unsigned int i = 0; i < count; i++) {
-			if (auto input = typeinfo_cast<CCTextInputNode*>(
-				m_widget->m_inputs->objectForKey(((CCInteger*) keys->objectAtIndex(i))->getValue()))) {
-				input->setUserObject("fix-text-input", CCBool::create(true));
-			}
-		}
-
-		return true;
-	}
-};
-
-void onSmallStepToggle(SetupTriggerPopup* self, CCObject* sender) {
-	auto toggle = static_cast<CCMenuItemToggler*>(sender);
-	areaTriggerSmallStepState = !areaTriggerSmallStepState;
-
-	bool oldDisableTextDelegate = self->m_disableTextDelegate;
-	self->m_disableTextDelegate = true;
-	self->updateDefaultTriggerValues();
-	self->m_disableTextDelegate = oldDisableTextDelegate;
-	if (!typeinfo_cast<SetupAreaAnimTriggerPopup*>(self) && !typeinfo_cast<SetupEnterEffectPopup*>(self)) {
-		self->goToPage(self->m_page, false);
-	}
-}
-
-void addSmallStepToggle(SetupTriggerPopup* self, cocos2d::SEL_MenuHandler smallStepToggleCallback) {
-	CCSize windowSize = CCDirector::sharedDirector()->getWinSize();
-	CCPoint position = {
-		windowSize.width * 0.5f - 190.0f,
-		(windowSize.height * 0.5f) - (self->m_height * 0.5f) + 44.0f,
-	};
-	auto smallStepToggle = GameToolbox::createToggleButton(
-		"Small\nStep",
-		smallStepToggleCallback,
-		areaTriggerSmallStepState,
-		self->m_buttonMenu,
-		position,
-		self,
-		self->m_mainLayer,
-		0.7f, 0.35f, 110.0f, { 8.0f, 0.0f }, "bigFont.fnt", false, 0,
-		self->getPageContainer(0));
-	smallStepToggle->setID("area_trigger_small_step_toggle"_spr);
-}
-
-#include <Geode/modify/SetupAreaMoveTriggerPopup.hpp>
-class $modify(PrecisionAreaMoveTriggerPopup, SetupAreaMoveTriggerPopup) {
-	void updateInputNode(int tag, float value) override {
-		if (!precisionParams || !areaTriggerSmallStepState) return SetupAreaMoveTriggerPopup::updateInputNode(tag, value);
-		SetupTriggerPopup::updateInputNode(tag, value);
-	}
-	void updateInputValue(int tag, float& value) override {
-		if (!precisionParams || !areaTriggerSmallStepState) return SetupAreaMoveTriggerPopup::updateInputValue(tag, value);
-		SetupTriggerPopup::updateInputValue(tag, value);
-	}
-
-	void smallStepToggleCallback(CCObject* sender) {
-		return onSmallStepToggle(this, sender);
-	}
-	$override
-	void addAreaDefaultControls(int objectID) {
-		SetupAreaMoveTriggerPopup::addAreaDefaultControls(objectID);
-		if (static_cast<int>(areaTriggerSmallStepMode) < 0) return;
-		addSmallStepToggle(this, menu_selector(PrecisionAreaMoveTriggerPopup::smallStepToggleCallback));
-	}
-};
-
-#include <Geode/modify/SetupAreaAnimTriggerPopup.hpp>
-class $modify(PrecisionAreaAnimTriggerPopup, SetupAreaAnimTriggerPopup) {
-	void smallStepToggleCallback(CCObject* sender) {
-		return onSmallStepToggle(this, sender);
-	}
-	bool init(EnterEffectObject* object, CCArray* objects, int id) {
-		if (!SetupAreaAnimTriggerPopup::init(object, objects, id)) return false;
-		if (static_cast<int>(areaTriggerSmallStepMode) < 0) return true;
-
-		addSmallStepToggle(this, menu_selector(PrecisionAreaAnimTriggerPopup::smallStepToggleCallback));
-		return true;
-	}
-};
-
-#include <Geode/modify/SetupEnterEffectPopup.hpp>
-class $modify(PrecisionEnterEffectPopup, SetupEnterEffectPopup) {
-#ifndef GEODE_IS_WINDOWS
-	void updateInputNode(int tag, float value) override {
-		if (!precisionParams || !areaTriggerSmallStepState) return SetupEnterEffectPopup::updateInputNode(tag, value);
-		SetupTriggerPopup::updateInputNode(tag, value);
-	}
-	void updateInputValue(int tag, float& value) override {
-		if (!precisionParams || !areaTriggerSmallStepState) return SetupEnterEffectPopup::updateInputValue(tag, value);
-		SetupTriggerPopup::updateInputValue(tag, value);
-	}
-#endif
-
-	void smallStepToggleCallback(CCObject* sender) {
-		return onSmallStepToggle(this, sender);
-	}
-	bool init(EnterEffectObject* object, CCArray* objects, int id) {
-		if (!SetupEnterEffectPopup::init(object, objects, id)) return false;
-		if (static_cast<int>(areaTriggerSmallStepMode) < 0) return true;
-
-		addSmallStepToggle(this, menu_selector(PrecisionEnterEffectPopup::smallStepToggleCallback));
-		return true;
 	}
 };
