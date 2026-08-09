@@ -7,13 +7,20 @@
 		"ios": "2.2081"
 	},
 	"id": "thiengmd.float64_editor",
-	"name": "High Precision Editor",
-	"version": "v0.0.0.0.1",
+	"name": "float64 Editor",
+	"version": "v0.0.1",
 	"developer": "ThienGMD",
 	"description": "Changes the GD editor logic to save certain values at full float64",
 	"tags": [
 		"editor",
 		"enhancement"
+	],
+	"dependencies": [
+		{
+			"id": "kxtbit.high_precision_editor",
+			"version": ">=0.1.31",
+			"importance": "required"
+		}
 	],
 	"settings": {
 		"float64-object-position": {
